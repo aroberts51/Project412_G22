@@ -1,8 +1,15 @@
 from django.urls import path
 from . import views
+from django.contrib.auth.views import LogoutView
+from django.contrib.auth import logout
+from django.shortcuts import redirect
+
+def red_logout(request):
+    logout(request)
+    return redirect('/')
 
 urlpatterns = [
-    path('', views.login_page, name='login'),# login page as default
+    path('', views.login_page, name='login_page'),# login page as default
     #path('', views.list_page, name='home'), 
     path('home/', views.list_page, name='home'), 
     path('user/', views.user_page, name='user_page'),
@@ -19,4 +26,7 @@ urlpatterns = [
     path('following/search/', views.search_following, name='search_following'),
     path('unfollow/<str:username>/', views.unfollow_user, name='unfollow'),
     path('follow_back/<str:username>/', views.follow_back_user, name='follow_back'),
+    path('logout/', red_logout, name='logout'),
+    path('signup/', views.signup_page, name='signup_page'),
+
 ]

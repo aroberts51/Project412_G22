@@ -60,13 +60,16 @@
     <header>
         <h1>MY GAME LIST</h1>
     </header>
+    {% block hide_navbar %}
     <nav>
         <a href="/user/">Home Page</a>
         <a href="/list/">Feed Page</a>
         <a href="/followers/">Followers</a>
         <a href="/following/">Following</a>
         <a href="/search/">Search</a>
+        <a href="{% url 'logout' %}">Logout</a>
     </nav>
+    {% endblock %}
     <div class="container">
         {% block content %}{% endblock %}
     </div>
