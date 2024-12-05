@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Game Info{% endblock %}
+{% block content %}
+<h2>{{ game_title }}</h2>
+<p><strong>Description:</strong> {{ description }}</p>
+<p><strong>Release Date:</strong> {{ release_date }}</p>
+<a href="{% url 'search_page' %}" style="padding: 10px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 5px;">Back to Search</a>
+{% endblock %}

@@ -1,0 +1,31 @@
+# This text file serves to contain code for future reference.
+
+# ===== ===== ===== ===== ===== 
+
+
+class StringPrinter:
+        def __build(self, outputString):
+            self.outputString = outputString
+
+        def set_Output_String(self, userString):
+              self.outputString = userString
+
+        def print_String(self):
+                print(self.outputString)
+
+
+
+
+
+def main():
+    helloSayer = StringPrinter()
+    helloSayer.set_Output_String("Hello, World!")
+    helloSayer.print_String()
+
+# ===== ===== ===== ===== =====
+
+
+
+
+
+main()

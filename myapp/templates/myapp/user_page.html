@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}User Page{% endblock %}
+{% block content %}
+<div>
+    {% if profile_picture %}
+        <img src="{{ profile_picture.url }}" 
+             alt="Profile Picture" 
+             style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover;">
+    {% else %}
+        <img src="{% static 'myapp/default-profile.png' %}" 
+             alt="Default Profile Picture" 
+             style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover;">
+    {% endif %}
+</div>
+<h2>Hello, {{ username }}!</h2>
+<p>Welcome to your profile page. Below is your list of games. Drag and drop to reorder them.</p>
+<div>
+    <h3>Your Games</h3>
+    <table id="game-list" style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+            <tr style="background-color: #f4f4f4;">
+                <th style="padding: 10px; border: 1px solid #ddd;">#</th>
+                <th style="padding: 10px; border: 1px solid #ddd;">Game Name</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for game in games %}
+            <tr class="game-item" data-game-id="{{ game.id }}" draggable="true" style="border: 1px solid #ddd;">
+                <td class="position" style="padding: 10px;">{{ forloop.counter }}</td>
+                <td style="padding: 10px;">
+                    {{ game.name }}
+                    <button style="margin-left: 10px; padding: 5px 10px; background-color: #ff4d4d; color: white; border: none; border-radius: 4px; cursor: pointer;">Delete</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<button id="edit-profile-button">Edit Profile</button>
+
+<div id="edit-profile-popup" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);">
+    <h3>Edit Profile</h3>
+    <form method="POST" action="{% url 'edit_profile' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" value="{{ username }}"><br><br>
+
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email" value="{{ email }}"><br><br>
+
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password"><br><br>
+
+        <label for="profile_picture">Profile Picture:</label>
+        <input type="file" id="profile_picture" name="profile_picture"><br><br>
+
+        <button type="submit">Save Changes</button>
+    </form>
+    <button id="close-popup">Close</button>
+</div>
+
+<script>
+    const gameList = document.querySelector('#game-list tbody');
+    let draggedRow = null;
+
+    gameList.addEventListener('dragstart', (e) => {
+        if (e.target.tagName === 'TR') {
+            draggedRow = e.target;
+            e.target.style.opacity = '0.5';
+        }
+    });
+
+    gameList.addEventListener('dragend', (e) => {
+        if (draggedRow) {
+            draggedRow.style.opacity = '1';
+            draggedRow = null;
+        }
+        updatePositions();
+    });
+
+    gameList.addEventListener('dragover', (e) => {
+        e.preventDefault();
+    });
+
+    gameList.addEventListener('drop', (e) => {
+        if (e.target.closest('tr') && draggedRow) {
+            const targetRow = e.target.closest('tr');
+            const rows = Array.from(gameList.children);
+            const draggedIndex = rows.indexOf(draggedRow);
+            const targetIndex = rows.indexOf(targetRow);
+
+            if (draggedIndex > targetIndex) {
+                gameList.insertBefore(draggedRow, targetRow);
+            } else {
+                gameList.insertBefore(draggedRow, targetRow.nextSibling);
+            }
+        }
+    });
+
+    function updatePositions() {
+        const rows = document.querySelectorAll('.game-item');
+        rows.forEach((row, index) => {
+            row.querySelector('.position').textContent = index + 1;
+        });
+    }
+
+    const editProfileButton = document.getElementById('edit-profile-button');
+    const editProfilePopup = document.getElementById('edit-profile-popup');
+    const closePopupButton = document.getElementById('close-popup');
+
+    editProfileButton.addEventListener('click', () => {
+        editProfilePopup.style.display = 'block';
+    });
+
+    closePopupButton.addEventListener('click', () => {
+        editProfilePopup.style.display = 'none';
+    });
+</script>
+{% endblock %}
