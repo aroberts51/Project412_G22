@@ -9,7 +9,9 @@
 <div class="following-list" style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: center;">
     {% for user in following %}
     <div class="follower-card" style="background: #f9f9f9; border: 1px solid #ddd; border-radius: 8px; padding: 20px; width: 250px; text-align: center; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-        <h3 style="font-size: 1.2rem; color: #333;">{{ user }}</h3>
+        <h3 style="font-size: 1.2rem; color: #333;">
+            <a href="{% url 'profile_page' %}" style="color: #333; text-decoration: none;">{{ user }} </a>
+        </h3>
         <form method="POST" action="{% url 'unfollow' user %}" style="margin-top: 10px;">
             {% csrf_token %}
             <button type="submit" style="padding: 8px 15px; background-color: #ff4d4d; color: white; border: none; border-radius: 4px; cursor: pointer;">Unfollow</button>

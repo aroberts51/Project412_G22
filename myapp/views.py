@@ -167,7 +167,24 @@ def login_page(request):
         else:
             return render(request, 'myapp/login_page.html', {'error_message': 'Invalid username or password.'})       
     return render(request, 'myapp/login_page.html')
+
 # ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
+
+
+
+
+
+# ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
+
+def profile_page(request):
+    return render(request, 'myapp/profile_page.html')
+
+
+# ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
+
+
+
+
 
 def game_info_page(request, game_id):
     game = next((game for game in GAMES if game['id'] == game_id), None)

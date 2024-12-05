@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Profile Page{% endblock %}
+{% block content %}
+<div>
+    {% if profile_picture %}
+        <img src="{{ profile_picture.url }}" 
+             alt="Profile Picture" 
+             style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover;">
+    {% else %}
+        <img src="{% static 'myapp/default-profile.png' %}" 
+             alt="Default Profile Picture" 
+             style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover;">
+    {% endif %}
+</div>
+<!--<h2>Hello, {{ username }}!</h2> -->
+<p>Welcome to my profile page!</p>
+<div>
+    <h3>My Games</h3>
+    <table id="game-list" style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+            <tr style="background-color: #f4f4f4;">
+                <th style="padding: 10px; border: 1px solid #ddd;">#</th>
+                <th style="padding: 10px; border: 1px solid #ddd;">Game Name</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for game in games %}
+            <tr class="game-item" data-game-id="{{ game.id }}" draggable="false" style="border: 1px solid #ddd;">
+                <td class="position" style="padding: 10px;">{{ forloop.counter }}</td>
+                <td style="padding: 10px;">
+                    {{ game.name }}
+                    <button style="margin-left: 10px; padding: 5px 10px; background-color: #ff4d4d; color: white; border: none; border-radius: 4px; cursor: pointer;">Delete</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
