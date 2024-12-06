@@ -47,7 +47,7 @@ class Gamegenres(models.Model):
 
 class Gameplayers(models.Model):
     username = models.ForeignKey(
-        'Users', models.CASCADE, db_column='username'
+        'Users', models.CASCADE, db_column='username', primary_key=True
     )
     gameid = models.ForeignKey(
         'Game', models.CASCADE, db_column='gameid'
