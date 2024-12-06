@@ -14,7 +14,6 @@
         </h3>
         {% if not follower.is_following_back %}
         <form method="POST" action="{% url 'follow_back' follower.name %}" style="margin-top: 10px;">
-            {% csrf_token %}
             <button type="submit" style="padding: 5px 10px; background-color: #0bb106; color: white; border: none; border-radius: 4px; cursor: pointer;">Follow Back</button>
         </form>
         {% else %}
