@@ -4,25 +4,34 @@ from django.http import Http404
 from django.shortcuts import render, redirect
 from django.shortcuts import redirect
 from django.contrib import messages
-from .models import Users, Game, Gameplayers, Userfollowers, Userfollowing
-from django.db import IntegrityError
+from .models import Users, Game
+from django.db import connection, transaction
+from django.http import HttpResponse
 from django.contrib import messages
+
 
 def user_page(request):
     username=request.session.get('username')
     if not username:
         return redirect('login_page')
     try:
-        user = Users.objects.get(username=username)
-        all_gameplayers = Gameplayers.objects.all()
-        user_game_ids = [gp.gameid for gp in all_gameplayers if gp.username==username]
-        all_games = Game.objects.all()
-        user_games = [game for game in all_games if game.gameid in user_game_ids]
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT g.gameid, g.gamename, ge.genrename
+                FROM gameplayers gp
+                JOIN game g ON gp.gameid= g.gameid
+                LEFT JOIN gamegenres gg ON gg.gameid = g.gameid
+                LEFT JOIN genres ge ON gg.genreid = ge.genreid
+                WHERE gp.username= %s
+            """, [username]) 
+            user_games=cursor.fetchall()
+        games=[{'gameid': game[0], 'gamename': game[1], 'genre': game[2]} for game in user_games]
+        user=Users.objects.get(username=username)
         context={
             'username':user.username,
             'email':user.useremail,
             'profile_picture':None,
-            'games':user_games,
+            'games':games,
         }
         return render(request,'myapp/user_page.html', context)
     except Users.DoesNotExist:
@@ -30,26 +39,28 @@ def user_page(request):
     except Exception as e:
         return HttpResponse(f"Error:{str(e)}")
 
-    
+# ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
+#NOT FUNCTIONAL DUE TO FOREIGN KEY OCNFLICT, NEED CASCADE
 def edit_account(request):
-    username='JohnDoe'
-    try:
-        user=Users.objects.get(username=username)
-        if request.method == 'POST':
-            user.username=request.POST.get('username',user.username)
-            user.useremail=request.POST.get('email',user.useremail)
-            user.userpassword=request.POST.get('password',user.userpassword)
-            user.save()
-            messages.success(request,"Account information updated!")
-            return redirect('user_page')
-        context={
-            'username':user.username,
-            'email':user.useremail,
-            'password':user.userpassword,
-        }
-        return render(request, 'myapp/edit_account.html',context)
-    except user.DoesNotExist:
+    print("edit_account view called")
+    username=request.session.get('username')
+    if not username:
+        return redirect('login_page')
+    with connection.cursor() as cursor:
+        cursor.execute("""SELECT username, useremail,userpassword FROM users WHERE username= %s""", [username])
+        user=cursor.fetchone()
+    if not user:
+        messages.error(request,"User not found.")
         return redirect('user_page')
+    if request.method=='POST':
+        messages.info(request,"This feature is under maintenance. Please try again later.")
+        return redirect('edit_account')
+    context={
+        'username': user[0],
+        'email': user[1],
+        'password': user[2],
+    }
+    return render(request, 'myapp/edit_account.html', context)
 
 def list_page(request):
     ######################################DATA TO BE SWAPPED
@@ -70,12 +81,30 @@ def list_page(request):
     #    },
     #]
     try:
-        following=Users.objects.all()
-        feed=[(user.username,[]) for user in following]
+        feed=[]
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT username FROM users")
+            users=cursor.fetchall()
+            for user in users:
+                username=user[0]
+                cursor.execute("""
+                    SELECT g.gameid, g.gamename, STRING_AGG(genres.genrename, ', ') AS genres
+                    FROM gameplayers gp
+                    JOIN game g ON gp.gameid = g.gameid
+                    LEFT JOIN gamegenres gg ON g.gameid = gg.gameid
+                    LEFT JOIN genres ON gg.genreid = genres.genreid
+                    WHERE gp.username = %s
+                    GROUP BY g.gameid, g.gamename
+                """, [username])
+                games=cursor.fetchall()
+                game_list=[{'id': game[0], 'name': game[1], 'genre': game[2]} for game in games]
+                feed.append((username,game_list))
         context={'feed':feed}
-        return render(request,'myapp/list_page.html',context)
+        return render(request, 'myapp/list_page.html', context)
     except Exception as e:
         return HttpResponse(f"Error: {str(e)}")
+# ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
+
 ######################################DATA TO BE SWAPPED
 #FOLLOWERS = [
 #    {'name': 'UserA', 'is_following_back': True},
@@ -88,66 +117,76 @@ def list_page(request):
 
 def followers_page(request):
     try:
-        username =request.session.get('username')
+        username=request.session.get('username')
         if not username:
             return redirect('login_page')
-        all_followers=Userfollowers.objects.select_related('followerusername')
-        user_followers=[follower for follower in all_followers if follower.username.username==username]
-        query=request.GET.get('q','').lower()
-        if query:
-            filtered_followers=[follower.followerusername for follower in user_followers if query in follower.followerusername.username.lower()]
-        else:
-            filtered_followers=[follower.followerusername for follower in user_followers]
-
-        all_following=Userfollowing.objects.select_related('followingusername')
-        following_usernames=[following.followingusername.username for following in all_following if following.username.username==username]
-        for follower in filtered_followers:
-            follower.is_following_back=follower.username in following_usernames
-        return render(request,'myapp/followers_page.html',{'followers':filtered_followers})
+        with connection.cursor() as cursor:
+            cursor.execute("""SELECT f.followerusername, u.username FROM userfollowers f JOIN users u ON f.followerusername=u.username WHERE f.username = %s""", [username])
+            user_followers=cursor.fetchall()
+            query=request.GET.get('q', '').lower()
+            filtered_followers=[follower for follower in user_followers if query in follower[1].lower()] if query else user_followers
+            cursor.execute("""SELECT f.followingusername, u.username FROM userfollowing f JOIN users u ON f.followingusername=u.username WHERE f.username = %s""", [username])
+            following_usernames=[following[1] for following in cursor.fetchall()]
+            for follower in filtered_followers:
+                follower.is_following_back=follower[1] in following_usernames
+            return render(request,'myapp/followers_page.html',{'followers': filtered_followers})
     except Exception as e:
         return HttpResponse(f"Error: {str(e)}")
-
+# ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
 
 def following_page(request):
     try:
-        following=Users.objects.all()
-        query=request.GET.get('q', '').lower()
-        if query:
-            filtered_following=[follow for follow in following if query in follow.username.lower()]
-        else:
-            filtered_following=following
-        template = get_template('myapp/following_page.html')
-        context = {'following': filtered_following}
-        return HttpResponse(template.render(context, request))
+        with connection.cursor() as cursor:
+            cursor.execute("""SELECT username FROM users""")
+            following=cursor.fetchall()
+            query=request.GET.get('q', '').lower()
+            filtered_following=[follow for follow in following if query in follow[0].lower()] if query else following
+        context={'following': filtered_following}
+        return render(request,'myapp/following_page.html',context)
     except Exception as e:
         return HttpResponse(f"Error: {str(e)}")
-
-
+# ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
+ 
 def search_followers(request):
     
     query= request.GET.get('q', '').lower()
-    followers=Users.objects.all()
-    filtered_followers = [follower for follower in followers if query in follower.username.lower()]
-    return render(request, 'myapp/followers_page.html', {'followers': filtered_followers})
-
+    with connection.cursor() as cursor:
+        cursor.execute("""SELECT username FROM users WHERE username ILIKE %s""", ['%' + query + '%'])
+        filtered_followers = cursor.fetchall()
+    return render(request,'myapp/followers_page.html',{'followers':[{'username': follower[0]} for follower in filtered_followers]})
+# ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
 
 def search_following(request):
     query=request.GET.get('q', '').lower()
-    following=Users.objects.all()
-    filtered_following = [follow for follow in following if query in follow.username.lower()]
-    return render(request, 'myapp/following_page.html', {'following': filtered_following})
+    with connection.cursor() as cursor:
+        cursor.execute("""SELECT username FROM users WHERE username ILIKE %s""", ['%' + query + '%'])
+        filtered_following=cursor.fetchall()
+    return render(request,'myapp/following_page.html',{'following':[{'username': follow[0]} for follow in filtered_following]})
+# ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
 
 
 def unfollow_user(request, username):
-    if request.method== 'POST':
-        messages.success(request, f"You have unfollowed {username}.")
+    if request.method=='POST':
+        current_user=request.session.get('username')
+        if not current_user:
+            return redirect('login_page')
+        with connection.cursor() as cursor:
+            cursor.execute("""DELETE FROM userfollowing WHERE username = %s AND followingusername = %s""", [current_user, username])
+        messages.success(request,f"You have unfollowed {username}.")
     return redirect('following')
 
+# ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
 
 def follow_back_user(request, username):
     if request.method== 'POST':
+        current_user=request.session.get('username')
+        if not current_user:
+            return redirect('login_page')
+        with connection.cursor() as cursor:
+            cursor.execute("""INSERT INTO userfollowing (username, followingusername) VALUES (%s, %s)""", [current_user, username])
         messages.success(request, f"You are now following {username}.")
     return redirect('followers')
+# ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
 
 ######################################DATA TO BE SWAPPED 
 #GAMES = [
@@ -157,55 +196,47 @@ def follow_back_user(request, username):
 #    ]
 
 def search_page(request):
-    username=request.session.get('username')
-    if not username:
-        return redirect('login_page')
-    query = request.GET.get('q', '') 
+   # username1 = request.session.get('username')
+   # if not username1:
+    #    return redirect('login_page')
+    query=request.GET.get('q', '') 
     search_results=[]
-    if query:
-        all_games=Game.objects.all()  
-        for game in all_games:
-            if query.lower() in game.gamename.lower(): 
-                search_results.append(game)
-    else:
-        search_results=Game.objects.all() 
- ##FIX THE ADD BUTTON 
-    if request.method=="POST":
-        game_id=request.POST.get('game_id')
-        try:
-            user=Users.objects.get(username=username)
-            game=Game.objects.get(gameid=game_id)
-            Gameplayers.objects.create(user,game)
-            messages.success(request, f"'{game.gamename}' has been added to your list.")
-        except IntegrityError:
-            messages.error(request,"Already in your list!")
-        except Game.DoesNotExist:
-            messages.error(request,"Game does not exist.")
-        except Exception as e:
-            messages.error(request,f"An unexpected error occurred: {str(e)}")
+    with connection.cursor() as cursor:
+        if query:
+            cursor.execute("""
+                SELECT gameid,gamename FROM game WHERE gamename ILIKE %s """, ['%' + query + '%'])
+            games=cursor.fetchall()
+            for game in games:
+                search_results.append({'gameid': game[0],'gamename': game[1]})
+        else:
+            cursor.execute("SELECT gameid,gamename FROM game")
+            games = cursor.fetchall()
+            for game in games:
+                search_results.append({'gameid':game[0],'gamename':game[1]})
 
-    context={
+    context = {
         'query': query,
         'search_results': search_results,
     }
-    return render(request, 'myapp/search_page.html', context)
+    return render(request,'myapp/search_page.html', context)
+# ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
 
 def signup_page(request):
-    if request.method == 'POST':
+    if request.method=='POST':
         email=request.POST['email']
         username=request.POST['username']
         password=request.POST['password']
-        all_users=Users.objects.all()
-        username_exists=any(user.username == username for user in all_users)
-        email_exists=any(user.useremail == email for user in all_users)
-        
-        if username_exists or email_exists:
-            return render(request,'myapp/signup_page.html', {'error_message': 'Username or email already exists.'})
-        #hash pass made too long
-        #hash_password = make_password(password)
-        Users.objects.create(username=username, useremail=email, userpassword=password)
-        return redirect('login_page')
-    return render(request,'myapp/signup_page.html')
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT username,useremail FROM users WHERE username =%s OR useremail = %s """, [username,email])
+            existing_user =cursor.fetchone()
+        if existing_user:
+            return render(request, 'myapp/signup_page.html',{'error_message': 'Username or email already exists.'})
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO users (username,useremail,userpassword) VALUES (%s, %s, %s) """, [username, email, password])
+        return redirect('login_page')   
+    return render(request, 'myapp/signup_page.html')
 # ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====  
 
 def login_page(request):
@@ -218,39 +249,44 @@ def login_page(request):
     if request.method=='POST':
         queryUsername=request.POST.get('username', '').strip()
         queryPassword=request.POST.get('password', '').strip()
-        try:
-            user=Users.objects.get(username=queryUsername)
-            if user.userpassword==queryPassword:  
-                request.session['username']=user.username
-                return redirect('user_page')  
-            else:
-                return render(request, 'myapp/login_page.html', {'error_message': 'Invalid username or password.'})
-        except Users.DoesNotExist:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT username, userpassword FROM users WHERE username = %s AND userpassword = %s """, [queryUsername, queryPassword])
+            user = cursor.fetchone()
+        if user:
+            request.session['username'] = user[0]
+            return redirect('user_page')  
+        else:
             return render(request, 'myapp/login_page.html', {'error_message': 'Invalid username or password.'})
     return render(request, 'myapp/login_page.html')
 # ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
 
-
-
-
-
+def profile_page(request, username):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT username FROM users WHERE username = %s", [username])
+            user=cursor.fetchone()
+            if not user:
+                return HttpResponse("User not found",status=404)
+        with connection.cursor() as cursor:
+            cursor.execute("""SELECT g.gameid, g.gamename FROM gameplayers gp JOIN game g ON gp.gameid = g.gameid WHERE gp.username = %s""", [username])
+            games=cursor.fetchall()
+        games_list=[{'id': game[0], 'name':game[1]} for game in games]
+        context={
+            'profile_picture': None, 
+            'username': username,
+            'games': games_list,
+        }
+        return render(request, 'myapp/profile_page.html',context)
+    except Exception as e:
+        return HttpResponse(f"Error: {str(e)}",status=500)
 # ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
-
-def profile_page(request):
-    return render(request, 'myapp/profile_page.html')
-
-
-# ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
-
-
-
-
-
 def game_info_page(request, game_id):
     #username=request.session.get('username')
     try:
-        game=Game.objects.get(gameid=game_id)
-        
+        with connection.cursor() as cursor:
+            cursor.execute("""SELECT gamename, summary, releasedate FROM game WHERE gameid = %s """, [game_id])
+            game = cursor.fetchone()
         if not game:
             raise Http404("Game not found")
         ######################################DATA TO BE SWAPPED
@@ -262,24 +298,49 @@ def game_info_page(request, game_id):
         return render(request, 'myapp/game_info_page.html', context)
     except Game.DoesNotExist:
         raise Http404("Game not found")
-
-
+# ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
 #Mock user list (replace with database queries)
 #USER_GAME_LIST = []
-
 def add_game_to_list(request):
-    if request.method == "POST":
-        game_id = int(request.POST.get('game_id', 0))
         ######################################DATA TO BE SWAPPED
         #GAMES = [
         #    {'id': 1, 'name': 'Game A', 'genre': 'Action', 'description': 'An action-packed game!', 'release_date': '2023-05-01'},
         #    {'id': 2, 'name': 'Game B', 'genre': 'Adventure', 'description': 'Explore vast lands!', 'release_date': '2022-11-15'},
         #    {'id': 3, 'name': 'Game C', 'genre': 'RPG', 'description': 'Role-playing at its finest.', 'release_date': '2024-01-20'},
         #]
-        try:
-            game=Game.objects.get(gameid=game_id)
-            Gameplayers.objects.create(username=request.user.username, gameid=game)
-            messages.success(request,f"{game.gamename} has been added successfully to your list.")
-        except Game.DoesNotExist:
-            messages.error(request, "Failed to add game.")
+    if request.method=="POST":
+        game_id=request.POST.get('game_id')
+        username=request.session.get('username')
+        if not username:
+            return redirect('login_page')
+        with connection.cursor() as cursor:
+            cursor.execute(""" SELECT username FROM users WHERE username = %s """, [username])
+            user=cursor.fetchone()
+            if user:
+                cursor.execute(""" SELECT gameid FROM gameplayers WHERE username = %s AND gameid = %s """, [username, game_id])
+                existing_game = cursor.fetchone()
+                if existing_game:
+                    messages.warning(request, f"Game is already in your list.")
+                else:
+                    cursor.execute(""" INSERT INTO gameplayers (username, gameid) VALUES (%s, %s) """, [username, game_id])
+                    messages.success(request, "Game has been added successfully to your list.")
+            else:
+                messages.error(request, "User session error. Please log in again.")
     return redirect('search_page')
+
+def delete_game(request):
+    if request.method=="POST":
+        game_id=request.POST.get("game_id")
+        username=request.session.get("username")
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""SELECT gameid FROM gameplayers WHERE username=%s AND gameid= %s""",[username,game_id])
+                existing_game=cursor.fetchone()
+                if existing_game:
+                    cursor.execute("""DELETE FROM gameplayers WHERE username =%s AND gameid=%s""",[username,game_id])
+                    messages.success(request, "Game has been deleted successfully from your list.")
+                else:
+                    messages.error(request, "Game could not be deleted from your list.")
+        except Exception as e:
+            messages.error(request, f"An error occurred: {str(e)}")
+    return redirect('user_page')

@@ -13,7 +13,7 @@ urlpatterns = [
     #path('', views.list_page, name='home'), 
     path('home/', views.list_page, name='home'), 
     path('user/', views.user_page, name='user_page'),
-    path('edit-profile/', views.edit_account, name='edit_profile'),
+    path('edit-account/', views.edit_account, name='edit_account'),
     path('list/', views.list_page, name='list_page'),
     path('followers/', views.followers_page, name='followers_page'),
     path('following/', views.following_page, name='following_page'),
@@ -26,8 +26,9 @@ urlpatterns = [
     path('following/search/', views.search_following, name='search_following'),
     path('unfollow/<str:username>/', views.unfollow_user, name='unfollow'),
     path('follow_back/<str:username>/', views.follow_back_user, name='follow_back'),
-    path('profile/', views.profile_page, name='profile_page'),
+    path('profile/<str:username>/', views.profile_page, name='profile_page'),
     path('logout/', red_logout, name='logout'),
     path('signup/', views.signup_page, name='signup_page'),
+    path('delete-game/', views.delete_game, name='delete_game'),
 
 ]
