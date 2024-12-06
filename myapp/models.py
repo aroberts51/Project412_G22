@@ -88,7 +88,7 @@ class Publishers(models.Model):
 
 class Userfollowers(models.Model):
     username = models.ForeignKey(
-        'Users', models.CASCADE, db_column='username'
+        'Users', models.CASCADE, db_column='username',primary_key=True
     )  # The composite primary key (username, followerusername) found, that is not supported. The first column is selected.
     followerusername = models.ForeignKey(
         'Users', models.CASCADE, db_column='followerusername', related_name='userfollowers_followerusername_set'
@@ -102,7 +102,7 @@ class Userfollowers(models.Model):
 
 class Userfollowing(models.Model):
     username = models.ForeignKey(
-        'Users', models.CASCADE, db_column='username'
+        'Users', models.CASCADE, db_column='username',primary_key=True
     )  # The composite primary key (username, followingusername) found, that is not supported. The first column is selected.
     followingusername = models.ForeignKey(
         'Users', models.CASCADE, db_column='followingusername', related_name='userfollowing_followingusername_set'

@@ -4,7 +4,9 @@ from django.http import Http404
 from django.shortcuts import render, redirect
 from django.shortcuts import redirect
 from django.contrib import messages
-from .models import Users, Game, Gameplayers
+from .models import Users, Game, Gameplayers, Userfollowers, Userfollowing
+from django.db import IntegrityError
+from django.contrib import messages
 
 def user_page(request):
     username=request.session.get('username')
@@ -86,14 +88,22 @@ def list_page(request):
 
 def followers_page(request):
     try:
-        followers=Users.objects.all()
+        username =request.session.get('username')
+        if not username:
+            return redirect('login_page')
+        all_followers=Userfollowers.objects.select_related('followerusername')
+        user_followers=[follower for follower in all_followers if follower.username.username==username]
         query=request.GET.get('q','').lower()
         if query:
-            filtered_followers=[follower for follower in followers if query in follower.username.lower()]
+            filtered_followers=[follower.followerusername for follower in user_followers if query in follower.followerusername.username.lower()]
         else:
-            filtered_followers=followers
+            filtered_followers=[follower.followerusername for follower in user_followers]
+
+        all_following=Userfollowing.objects.select_related('followingusername')
+        following_usernames=[following.followingusername.username for following in all_following if following.username.username==username]
+        for follower in filtered_followers:
+            follower.is_following_back=follower.username in following_usernames
         return render(request,'myapp/followers_page.html',{'followers':filtered_followers})
-    
     except Exception as e:
         return HttpResponse(f"Error: {str(e)}")
 
@@ -114,6 +124,7 @@ def following_page(request):
 
 
 def search_followers(request):
+    
     query= request.GET.get('q', '').lower()
     followers=Users.objects.all()
     filtered_followers = [follower for follower in followers if query in follower.username.lower()]
@@ -146,18 +157,34 @@ def follow_back_user(request, username):
 #    ]
 
 def search_page(request):
+    username=request.session.get('username')
+    if not username:
+        return redirect('login_page')
     query = request.GET.get('q', '') 
-    search_results = []
+    search_results=[]
     if query:
-        all_games = Game.objects.all()  
+        all_games=Game.objects.all()  
         for game in all_games:
             if query.lower() in game.gamename.lower(): 
                 search_results.append(game)
-            
-
     else:
-        search_results = Game.objects.all() 
-    context = {
+        search_results=Game.objects.all() 
+ ##FIX THE ADD BUTTON 
+    if request.method=="POST":
+        game_id=request.POST.get('game_id')
+        try:
+            user=Users.objects.get(username=username)
+            game=Game.objects.get(gameid=game_id)
+            Gameplayers.objects.create(user,game)
+            messages.success(request, f"'{game.gamename}' has been added to your list.")
+        except IntegrityError:
+            messages.error(request,"Already in your list!")
+        except Game.DoesNotExist:
+            messages.error(request,"Game does not exist.")
+        except Exception as e:
+            messages.error(request,f"An unexpected error occurred: {str(e)}")
+
+    context={
         'query': query,
         'search_results': search_results,
     }
@@ -220,6 +247,7 @@ def profile_page(request):
 
 
 def game_info_page(request, game_id):
+    #username=request.session.get('username')
     try:
         game=Game.objects.get(gameid=game_id)
         
