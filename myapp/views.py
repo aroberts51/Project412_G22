@@ -10,7 +10,7 @@ from django.http import HttpResponse
 from django.contrib import messages
 
 
-def user_page(request):
+def user_page(request): # Displays the current users' home page.
     username=request.session.get('username')
     if not username:
         return redirect('login_page')
@@ -40,8 +40,11 @@ def user_page(request):
         return HttpResponse(f"Error:{str(e)}")
 
 # ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
-#NOT FUNCTIONAL DUE TO FOREIGN KEY OCNFLICT, NEED CASCADE
-def edit_account(request):
+#NOT FUNCTIONAL DUE TO FOREIGN KEY CONFLICT, NEED CASCADE
+
+
+
+def edit_account(request): # Displays the current users' edit page.
     print("edit_account view called")
     username=request.session.get('username')
     with connection.cursor() as cursor:
@@ -60,7 +63,11 @@ def edit_account(request):
     }
     return render(request, 'myapp/edit_account.html', context)
 
-def list_page(request):
+# ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
+
+
+
+def list_page(request): # Displays the current users' feed page.
     ######################################DATA TO BE SWAPPED
     #following = [
     #    {
@@ -103,6 +110,8 @@ def list_page(request):
         return HttpResponse(f"Error: {str(e)}")
 # ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
 
+
+
 ######################################DATA TO BE SWAPPED
 #FOLLOWERS = [
 #    {'name': 'UserA', 'is_following_back': True},
@@ -113,7 +122,7 @@ def list_page(request):
 #FOLLOWING = ['User4', 'User5', 'User6']
 
 
-def followers_page(request):
+def followers_page(request): # Displayers the users following the current user.
     try:
         username=request.session.get('username')
         with connection.cursor() as cursor:
@@ -130,7 +139,9 @@ def followers_page(request):
         return HttpResponse(f"Error: {str(e)}")
 # ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
 
-def following_page(request):
+
+
+def following_page(request): # Displays the users being followed by the current user.
     try:
         with connection.cursor() as cursor:
             cursor.execute("""SELECT username FROM users""")
@@ -142,8 +153,10 @@ def following_page(request):
     except Exception as e:
         return HttpResponse(f"Error: {str(e)}")
 # ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
- 
-def search_followers(request):
+
+
+
+def search_followers(request): # Searches for a user in the current users' follower list.
     
     query= request.GET.get('q', '').lower()
     with connection.cursor() as cursor:
@@ -152,7 +165,9 @@ def search_followers(request):
     return render(request,'myapp/followers_page.html',{'followers':[{'username': follower[0]} for follower in filtered_followers]})
 # ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
 
-def search_following(request):
+
+
+def search_following(request): # Searches for a user in the current users' follow list.
     query=request.GET.get('q', '').lower()
     with connection.cursor() as cursor:
         cursor.execute("""SELECT username FROM users WHERE username ILIKE %s""", ['%' + query + '%'])
@@ -161,7 +176,7 @@ def search_following(request):
 # ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
 
 
-def unfollow_user(request, username):
+def unfollow_user(request, username): # Removes a user from the current users' follow list.
     if request.method=='POST':
         current_user=request.session.get('username')
         if not current_user:
@@ -173,7 +188,9 @@ def unfollow_user(request, username):
 
 # ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
 
-def follow_back_user(request, username):
+
+
+def follow_back_user(request, username): # Adds another user to the current users' follow list.
     if request.method== 'POST':
         current_user=request.session.get('username')
         if not current_user:
@@ -184,6 +201,8 @@ def follow_back_user(request, username):
     return redirect('followers')
 # ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
 
+
+
 ######################################DATA TO BE SWAPPED 
 #GAMES = [
 #        {'id': 1, 'name': 'Game A', 'genre': 'Action', 'description': 'An action-packed game!', 'release_date': '2023-05-01'},
@@ -191,7 +210,7 @@ def follow_back_user(request, username):
 #        {'id': 3, 'name': 'Game C', 'genre': 'RPG', 'description': 'Role-playing at its finest.', 'release_date': '2024-01-20'},
 #    ]
 
-def search_page(request):
+def search_page(request): # Displays the search page.
    # username1 = request.session.get('username')
    # if not username1:
     #    return redirect('login_page')
@@ -216,7 +235,9 @@ def search_page(request):
     return render(request,'myapp/search_page.html', context)
 # ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
 
-def signup_page(request):
+
+
+def signup_page(request): # Displays the signup page.
     if request.method=='POST':
         email=request.POST['email']
         username=request.POST['username']
@@ -232,7 +253,9 @@ def signup_page(request):
     return render(request, 'myapp/signup_page.html')
 # ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====  
 
-def login_page(request):
+
+
+def login_page(request): # Displays the login page.
     ######################################DATA TO BE SWAPPED
     #USERS = [
     #    {'username': 'user1', 'password': 'pass1'},
@@ -253,7 +276,9 @@ def login_page(request):
     return render(request, 'myapp/login_page.html')
 # ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
 
-def profile_page(request, username):
+
+
+def profile_page(request, username): # Provides the profile page of the selected user.
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT username FROM users WHERE username = %s", [username])
@@ -273,7 +298,10 @@ def profile_page(request, username):
     except Exception as e:
         return HttpResponse(f"Error: {str(e)}",status=500)
 # ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
-def game_info_page(request, game_id):
+
+
+
+def game_info_page(request, game_id): # Provides information on the selected game.
     #username=request.session.get('username')
     try:
         with connection.cursor() as cursor:
@@ -291,9 +319,12 @@ def game_info_page(request, game_id):
     except Game.DoesNotExist:
         raise Http404("Game not found")
 # ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
+
+
+
 #Mock user list (replace with database queries)
 #USER_GAME_LIST = []
-def add_game_to_list(request):
+def add_game_to_list(request): # Adds a game to the user list.
         ######################################DATA TO BE SWAPPED
         #GAMES = [
         #    {'id': 1, 'name': 'Game A', 'genre': 'Action', 'description': 'An action-packed game!', 'release_date': '2023-05-01'},
@@ -320,7 +351,11 @@ def add_game_to_list(request):
                 messages.error(request, "User session error. Please log in again.")
     return redirect('search_page')
 
-def delete_game(request):
+# ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
+
+
+
+def delete_game(request): # Removes games from the user list.
     if request.method=="POST":
         game_id=request.POST.get("game_id")
         username=request.session.get("username")
@@ -336,3 +371,5 @@ def delete_game(request):
         except Exception as e:
             messages.error(request, f"An error occurred: {str(e)}")
     return redirect('user_page')
+
+# ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
