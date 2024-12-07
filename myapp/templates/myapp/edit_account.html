@@ -3,7 +3,6 @@
 {% block content %}
 <h2>Edit Your Account</h2>
 <form method="POST" action="{% url 'edit_account' %}">
-    {% csrf_token %}
     <label for="username">Username:</label>
     <input type="text" id="username" name="username" value="{{ username }}"><br><br>
     <label for="email">Email:</label>
